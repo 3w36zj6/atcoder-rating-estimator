@@ -1,0 +1,1 @@
+# AtCoder Heuristic Rating Estimator
