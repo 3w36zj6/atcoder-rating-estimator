@@ -19,7 +19,7 @@ export const fetchAtCoderContestResults = async (
 	userId: string,
 	contestType: ContestType
 ): Promise<AtCoderContestResult[]> => {
-	const url = `https://atcoder.jp/users/${userId}/history/json?contestType=${contestType}`;
+	const url = `https://atcoder.jp/users/${userId}/history/json?contestType=${contestType === 'algorithm' ? 'algo' : 'heuristic'}`;
 	const response = await fetch(url);
 	const contestResults = await response.json<RawAtCoderContestResult[]>();
 

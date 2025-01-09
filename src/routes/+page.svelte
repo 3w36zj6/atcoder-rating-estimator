@@ -6,13 +6,13 @@
 	import { goto } from '$app/navigation';
 	import { Chart, type Plugin } from 'chart.js/auto';
 	import { getRatingColor } from '$lib/getRatingColor';
-	import { calculateRating } from '$lib/calculateRating';
+	import { calculateAlgorithmRating, calculateHeuristicRating } from '$lib/calculateRating';
 
 	let performancesTextArea: string = '';
 	let rate: number = 0;
 	let chart: Chart | undefined;
 	let chartCanvas: HTMLCanvasElement;
-	let selectedCalculateAlgorithm: 'v1' | 'v2' = 'v1';
+	let selectedContestType: 'algorithm' | 'heuristic_v1' | 'heuristic_v2' = 'algorithm';
 	let atcoderID = 'tourist';
 	const urlSearchParams = page.url.searchParams;
 
@@ -128,12 +128,19 @@
 		});
 	};
 
-	const calculateButton = () => {
+	const handleCalculate = () => {
 		const performances = performancesTextArea
 			.split('\n')
 			.map((p) => parseInt(p))
 			.filter((p) => !isNaN(p))
 			.map((p) => ({ performance: p }));
+
+		if (performances.length === 0) {
+			performances.push({ performance: 0 });
+		}
+
+		const calculateRating =
+			selectedContestType === 'algorithm' ? calculateAlgorithmRating : calculateHeuristicRating;
 
 		rate = calculateRating(performances);
 		let newRates: number[] = [];
@@ -143,13 +150,14 @@
 		drawChart(newRates);
 	};
 
-	const importButton = () => {
+	const handleImport = () => {
 		const performances: number[] = [];
 		urlSearchParams.set('id', atcoderID);
 		if (browser) {
 			goto(`?${urlSearchParams.toString()}`, { replaceState: true });
 
-			fetch(`./api/${atcoderID}/heuristic`)
+			const url = `./api/${atcoderID}/${selectedContestType === 'algorithm' ? 'algorithm' : 'heuristic'}`;
+			fetch(url)
 				.then((response) => response.json<AtCoderContestResult[]>())
 				.then((contestResults) => {
 					for (const contest of contestResults) {
@@ -159,7 +167,7 @@
 					}
 					if (performances) {
 						performancesTextArea = performances.join('\n');
-						calculateButton();
+						handleCalculate();
 					}
 				})
 				.catch((error) => {
@@ -168,53 +176,62 @@
 		}
 	};
 
-	{
+	onMount(() => {
 		const id = urlSearchParams.get('id');
 		if (id) {
 			atcoderID = id;
-			importButton();
+			handleImport();
+		} else {
+			handleCalculate();
 		}
-	}
-	onMount(calculateButton);
+	});
 </script>
 
 <svelte:head>
-	<title>AtCoder Heuristic Rating Estimator</title>
+	<title>AtCoder Rating Estimator</title>
 	<meta
 		name="description"
-		content="AtCoder Heuristic Contest (AHC)の目標レーティングへの到達に必要なパフォーマンスを計算しグラフで表示します。"
+		content="AtCoderのRatedコンテストで目標レーティングへの到達に必要なパフォーマンスを計算しグラフで表示します。"
 	/>
 </svelte:head>
 
 <main>
 	<section>
-		<h1>AtCoder Heuristic Rating Estimator</h1>
+		<h1>AtCoder Rating Estimator</h1>
 		<p>
-			AtCoder Heuristic Contest
-			(AHC)の目標レーティングへの到達に必要なパフォーマンスを計算しグラフで表示します。
+			AtCoderのRatedコンテストで目標レーティングへの到達に必要なパフォーマンスを計算しグラフで表示します。
 		</p>
 	</section>
 	<section>
-		<h2>計算アルゴリズム</h2>
+		<h2>コンテスト区分</h2>
 		<div class="mb-4 flex gap-4">
 			<label class="flex items-center gap-2">
 				<input
 					type="radio"
-					value="v1"
-					bind:group={selectedCalculateAlgorithm}
+					value="algorithm"
+					bind:group={selectedContestType}
 					class="text-blue-500 focus:ring-blue-500"
 				/>
-				<span class="text-sm text-gray-700">v1</span>
-			</label>
-			<label class="flex items-center gap-2">
-				<input
-					type="radio"
-					value="v2"
-					bind:group={selectedCalculateAlgorithm}
-					disabled
-					class="text-blue-500 focus:ring-blue-500"
-				/>
-				<span class="text-sm text-gray-700">v2</span>
+				<span class="text-sm text-gray-700">Algorithm</span>
+				<label class="flex items-center gap-2">
+					<input
+						type="radio"
+						value="heuristic_v1"
+						bind:group={selectedContestType}
+						class="text-blue-500 focus:ring-blue-500"
+					/>
+					<span class="text-sm text-gray-700">Heuristic (v1)</span>
+				</label>
+				<label class="flex items-center gap-2">
+					<input
+						type="radio"
+						value="heuristic_v2"
+						bind:group={selectedContestType}
+						disabled
+						class="text-blue-500 focus:ring-blue-500"
+					/>
+					<span class="text-sm text-gray-700">Heuristic (v2)</span>
+				</label>
 			</label>
 		</div>
 	</section>
@@ -233,14 +250,14 @@
 
 		<div class="mb-4">
 			<button
-				on:click={importButton}
+				on:click={handleImport}
 				class="rounded-md bg-blue-500 px-4 py-2 text-white transition hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
 			>
 				atcoder.jpからコンテスト履歴をインポート
 			</button>
 		</div>
 		<p>
-			改行区切りで入力してください。レーティング計算式よりパフォーマンスの順番は関係ありません。
+			改行区切りで入力してください。パフォーマンスの値はマイナス補正適用前の値を入力してください。
 		</p>
 		<div class="mb-4">
 			<textarea
@@ -251,7 +268,7 @@
 		</div>
 		<div class="mb-4">
 			<button
-				on:click={calculateButton}
+				on:click={handleCalculate}
 				class="rounded-md bg-blue-500 px-4 py-2 text-white transition hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
 			>
 				計算
@@ -271,7 +288,7 @@
 		<ul>
 			<li>
 				<a
-					href="https://twitter.com/intent/tweet?hashtags=atcoder%20%23heuristic%20%23ahc&amp;text=AtCoder%20Heuristic%20Rating%20Estimator%20-%20{atcoderID}&amp;url={page.url
+					href="https://twitter.com/intent/tweet?hashtags=atcoder&amp;text=AtCoder%20Rating%20Estimator%20-%20{atcoderID}&amp;url={page.url
 						.toString()
 						.split('?')[0]}?id={atcoderID}">Tweet</a
 				>
@@ -281,17 +298,22 @@
 	<section>
 		<h2>View on GitHub</h2>
 		<p>
-			<a href="https://github.com/3w36zj6/atcoder-heuristic-rating-estimator"
+			<a href="https://github.com/3w36zj6/atcoder-rating-estimator"
 				><img
-					alt="atcoder-heuristic-rating-estimator"
-					src="https://gh-card.dev/repos/3w36zj6/atcoder-heuristic-rating-estimator.svg?fullname="
+					alt="atcoder-rating-estimator"
+					src="https://gh-card.dev/repos/3w36zj6/atcoder-rating-estimator.svg?fullname="
 				/></a
 			>
 		</p>
 	</section>
 	<section>
-		<h2>Links</h2>
+		<h2>Bibliography</h2>
 		<ul>
+			<li>
+				<a href="https://www.dropbox.com/s/ixci4amralioaif/rating.pdf"
+					>AtCoder Rating System ver. 1.00</a
+				>
+			</li>
 			<li>
 				<a href="https://www.dropbox.com/s/ne358pdixfafppm/AHC_rating.pdf">AHC Rating System</a>
 			</li>
