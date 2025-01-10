@@ -6,7 +6,12 @@
 	import { goto } from '$app/navigation';
 	import { Chart, type Plugin } from 'chart.js/auto';
 	import { getRatingColor } from '$lib/getRatingColor';
-	import { calculateAlgorithmRating, calculateHeuristicRating } from '$lib/calculateRating';
+	import {
+		applyRatingCorrection,
+		calculateAlgorithmRating,
+		calculateHeuristicRating,
+		inverseRatingCorrection
+	} from '$lib/calculateRating';
 
 	let performancesTextArea: string = '';
 	let rate: number = 0;
@@ -131,7 +136,7 @@
 	const handleCalculate = () => {
 		const performances = performancesTextArea
 			.split('\n')
-			.map((p) => parseInt(p))
+			.map((p) => inverseRatingCorrection(parseInt(p)))
 			.filter((p) => !isNaN(p))
 			.map((p) => ({ performance: p }));
 
@@ -162,7 +167,7 @@
 				.then((contestResults) => {
 					for (const contest of contestResults) {
 						if (contest.isRated) {
-							performances.push(contest.performance);
+							performances.push(Math.floor(applyRatingCorrection(contest.performance)));
 						}
 					}
 					if (performances) {
@@ -257,7 +262,7 @@
 			</button>
 		</div>
 		<p>
-			改行区切りで入力してください。パフォーマンスの値はマイナス補正適用前の値を入力してください。
+			改行区切りで入力してください。パフォーマンスの値はマイナス補正適用後の値を入力してください。
 		</p>
 		<div class="mb-4">
 			<textarea

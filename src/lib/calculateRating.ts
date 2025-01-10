@@ -1,5 +1,19 @@
 import type { AtCoderContestResult } from './AtCoderContestResult';
 
+export const applyRatingCorrection = (rating: number): number => {
+	if (rating < 400) {
+		return 400 / Math.exp((400 - rating) / 400);
+	}
+	return rating;
+};
+
+export const inverseRatingCorrection = (correctedRating: number): number => {
+	if (correctedRating >= 400) {
+		return correctedRating;
+	}
+	return 400 - 400 * Math.log(400 / correctedRating);
+};
+
 type ContestResult = Pick<AtCoderContestResult, 'performance'>;
 
 export const calculateAlgorithmRating = (contestResults: ContestResult[]): number => {
@@ -31,11 +45,9 @@ export const calculateAlgorithmRating = (contestResults: ContestResult[]): numbe
 		weightSum += weight;
 	}
 
-	let rate = gInv(weightedGSum / weightSum) - f(performances.length);
-	if (rate < 400) {
-		rate = 400 / Math.exp((400 - rate) / 400);
-	}
-	return rate;
+	let rating = gInv(weightedGSum / weightSum) - f(performances.length);
+	rating = applyRatingCorrection(rating);
+	return rating;
 };
 
 export const calculateHeuristicRating = (contestResults: ContestResult[]): number => {
@@ -47,19 +59,16 @@ export const calculateHeuristicRating = (contestResults: ContestResult[]): numbe
 		.flatMap((p) => Array.from({ length: 100 }, (_, j) => p - S * Math.log(j + 1)))
 		.sort((a, b) => b - a);
 
-	let rateDenominator = 0;
-	let rateNumerator = 0;
+	let ratingDenominator = 0;
+	let ratingNumerator = 0;
 
 	for (let i = 0; i < 100; i++) {
 		const power = R ** (i + 1);
-		rateDenominator += extendedPerformances[i] * power;
-		rateNumerator += power;
+		ratingDenominator += extendedPerformances[i] * power;
+		ratingNumerator += power;
 	}
 
-	let rate = rateDenominator / rateNumerator;
-	if (rate < 400) {
-		rate = 400 / Math.exp((400 - rate) / 400);
-	}
-
-	return rate;
+	let rating = ratingDenominator / ratingNumerator;
+	rating = applyRatingCorrection(rating);
+	return rating;
 };
