@@ -14,14 +14,14 @@
 	} from '$lib/calculateRating';
 
 	let performancesTextArea: string = '';
-	let rate: number = 0;
+	let rating: number = 0;
 	let chart: Chart | undefined;
 	let chartCanvas: HTMLCanvasElement;
 	let selectedContestType: 'algorithm' | 'heuristic_v1' | 'heuristic_v2' = 'algorithm';
 	let atcoderID = 'tourist';
 	const urlSearchParams = page.url.searchParams;
 
-	const drawChart = (rates: number[]) => {
+	const drawChart = (ratings: number[]) => {
 		if (chart) {
 			chart.destroy();
 		}
@@ -36,7 +36,7 @@
 					backgroundColor: 'rgb(128, 128, 128, 0)',
 					borderColor: 'rgb(128, 128, 128 ,0.8)',
 					pointRadius: 0,
-					data: rates
+					data: ratings
 				}
 			]
 		};
@@ -48,26 +48,30 @@
 				const yScale = chart.scales['y'];
 				const ctx = chart.ctx;
 
-				for (const rate of [...Array(10).keys()].map((i) => {
+				for (const rating of [...Array(10).keys()].map((i) => {
 					return i * 400;
 				})) {
-					ctx.fillStyle = `rgba(${getRatingColor(rate).join(', ')}, 0.2)`;
+					ctx.fillStyle = `rgba(${getRatingColor(rating).join(', ')}, 0.2)`;
 					ctx.fillRect(
 						xScale.left,
-						Math.min(yScale.getPixelForValue(rate + 400), yScale.bottom),
+						Math.min(yScale.getPixelForValue(rating + 400), yScale.bottom),
 						xScale.width,
-						Math.min(yScale.getPixelForValue(rate), yScale.bottom) -
-							Math.min(yScale.getPixelForValue(rate + 400), yScale.bottom)
+						Math.min(yScale.getPixelForValue(rating), yScale.bottom) -
+							Math.min(yScale.getPixelForValue(rating + 400), yScale.bottom)
 					);
-					ctx.fillStyle = `rgba(${getRatingColor(rate).join(', ')}, 0.5)`;
+					ctx.fillStyle = `rgba(${getRatingColor(rating).join(', ')}, 0.5)`;
 					ctx.fillRect(
-						xScale.getPixelForValue(rate),
+						xScale.getPixelForValue(rating),
 						yScale.bottom,
-						Math.min(xScale.getPixelForValue(rate + 400), xScale.right) -
-							Math.min(xScale.getPixelForValue(rate), xScale.right),
+						Math.min(xScale.getPixelForValue(rating + 400), xScale.right) -
+							Math.min(xScale.getPixelForValue(rating), xScale.right),
 						5
 					);
 				}
+
+				const currentRating = rating;
+				ctx.fillStyle = `rgba(${getRatingColor(currentRating).join(', ')}, 0.5)`;
+				ctx.fillRect(xScale.left, yScale.getPixelForValue(currentRating), xScale.width, 3);
 			}
 		};
 
@@ -147,12 +151,12 @@
 		const calculateRating =
 			selectedContestType === 'algorithm' ? calculateAlgorithmRating : calculateHeuristicRating;
 
-		rate = calculateRating(performances);
-		let newRates: number[] = [];
+		rating = calculateRating(performances);
+		let newRatings: number[] = [];
 		for (const i of [...Array(320).keys()]) {
-			newRates.push(calculateRating([...performances, { performance: i * 10 }]));
+			newRatings.push(calculateRating([...performances, { performance: i * 10 }]));
 		}
-		drawChart(newRates);
+		drawChart(newRatings);
 	};
 
 	const handleImport = () => {
@@ -282,7 +286,7 @@
 	</section>
 	<section>
 		<h2>現在のレーティング</h2>
-		<p>{rate || '未参加'}</p>
+		<p>{rating || '未参加'}</p>
 	</section>
 	<section>
 		<h2>次回のレーティング</h2>
