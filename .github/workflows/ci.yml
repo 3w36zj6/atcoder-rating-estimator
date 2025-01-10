@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup tools
+        uses: jdx/mise-action@v2
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+      - name: Check format and lint
+        run: bun run lint
+
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup tools
+        uses: jdx/mise-action@v2
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+      - name: Check TypeScript
+        run: bun run check
+
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup tools
+        uses: jdx/mise-action@v2
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+      - name: Run tests
+        run: bun run test
