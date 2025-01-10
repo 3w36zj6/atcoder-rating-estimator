@@ -290,7 +290,7 @@
 	</section>
 	<section>
 		<h2>次回のレーティング</h2>
-		<div id="chart"><canvas bind:this={chartCanvas}></canvas></div>
+		<div class="relative w-full max-w-[900px]"><canvas bind:this={chartCanvas}></canvas></div>
 	</section>
 	<section>
 		<h2>Twitterでつぶやく</h2>
@@ -329,14 +329,3 @@
 		</ul>
 	</section>
 </main>
-
-<style>
-	textarea {
-		width: 150px;
-		height: 200px;
-	}
-	#chart {
-		position: relative;
-		width: 900px;
-	}
-</style>
