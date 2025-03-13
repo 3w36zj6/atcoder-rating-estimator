@@ -19,7 +19,9 @@ export const fetchAtCoderContestResults = async (
 	userId: string,
 	contestType: ContestType
 ): Promise<AtCoderContestResult[]> => {
-	const url = `https://atcoder.jp/users/${userId}/history/json?contestType=${contestType === 'algorithm' ? 'algo' : 'heuristic'}`;
+	// NOTE: Using proxy to bypass AtCoder's Web Application Firewall.
+	//const url = `https://atcoder.jp/users/${userId}/history/json?contestType=${contestType === 'algorithm' ? 'algo' : 'heuristic'}`;
+	const url = `https://script.google.com/macros/s/AKfycby-CKUsGoe7YZBeIf9FMwvCK6JIfqnVkN-8764iNkRApGPns158Q6vJPxpDdnGfsDXU/exec?type=${contestType === 'algorithm' ? 'algo' : 'heuristic'}&id=${userId}`;
 	const response = await fetch(url);
 	const contestResults = await response.json<RawAtCoderContestResult[]>();
 
