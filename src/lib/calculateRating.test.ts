@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { calculateAlgorithmRating, calculateHeuristicRating } from './calculateRating';
+import {
+	calculateAlgorithmRating,
+	calculateHeuristicRating,
+	calculateHeuristicRatingV2
+} from './calculateRating';
 
 describe('calculateAlgorithmRating', () => {
 	it("should return the correct rating for tourist's performances", () => {
@@ -87,5 +91,23 @@ describe('calculateHeuristicRating', () => {
 				0
 			);
 		}
+	});
+});
+
+describe('calculateHeuristicRatingV2', () => {
+	it("should return the correct rating for tourist's performances", () => {
+		// https://atcoder.jp/users/tourist/history
+
+		const contestResults = [
+			{ performance: 3254, endTime: new Date('2021-04-25T23:00:00+09:00'), weight: 1 },
+			{ performance: 2119, endTime: new Date('2021-06-26T19:00:00+09:00'), weight: 1 },
+			{ performance: 2471, endTime: new Date('2024-01-13T19:00:00+09:00'), weight: 1 },
+			{ performance: 1297, endTime: new Date('2024-04-07T23:00:00+09:00'), weight: 1 },
+			{ performance: 1446, endTime: new Date('2024-07-21T19:00:00+09:00'), weight: 1 }
+		];
+
+		expect(
+			calculateHeuristicRatingV2(contestResults, new Date('2025-07-06T23:00:00+09:00'))
+		).toBeCloseTo(2180, 0);
 	});
 });

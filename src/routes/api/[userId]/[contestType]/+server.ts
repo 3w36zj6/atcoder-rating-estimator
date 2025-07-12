@@ -1,4 +1,4 @@
-import { fetchAtCoderContestResults } from '$lib/server/fetchAtCoderContestResults';
+import { getUserContestResult } from '$lib/server/getUserContestResult';
 import { json } from '@sveltejs/kit';
 
 export const GET = async ({ params }) => {
@@ -6,7 +6,7 @@ export const GET = async ({ params }) => {
 		return json([], { status: 400 });
 	}
 
-	const contestResults = await fetchAtCoderContestResults(params.userId, params.contestType);
+	const performances = await getUserContestResult(params.userId, params.contestType);
 
-	return json(contestResults);
+	return json(performances);
 };

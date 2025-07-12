@@ -1,6 +1,4 @@
-import type { AtCoderContestResult } from '$lib/AtCoderContestResult';
-
-export type ContestType = 'algorithm' | 'heuristic';
+import type { AtCoderContestResult } from '$lib/server/types/AtCoderContestResult';
 
 type RawAtCoderContestResult = {
 	IsRated: boolean;
@@ -17,7 +15,7 @@ type RawAtCoderContestResult = {
 
 export const fetchAtCoderContestResults = async (
 	userId: string,
-	contestType: ContestType
+	contestType: 'algorithm' | 'heuristic'
 ): Promise<AtCoderContestResult[]> => {
 	// NOTE: Using proxy to bypass AtCoder's Web Application Firewall.
 	//const url = `https://atcoder.jp/users/${userId}/history/json?contestType=${contestType === 'algorithm' ? 'algo' : 'heuristic'}`;
@@ -36,7 +34,7 @@ export const fetchAtCoderContestResults = async (
 			contestScreenName: contestResult.ContestScreenName,
 			contestName: contestResult.ContestName,
 			contestNameEn: contestResult.ContestNameEn,
-			endTime: contestResult.EndTime
+			endTime: new Date(contestResult.EndTime)
 		};
 	});
 };
