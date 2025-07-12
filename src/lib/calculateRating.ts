@@ -83,7 +83,7 @@ export const calculateHeuristicRatingV2 = (
 	const baseTime = base.getTime();
 
 	const decayedPerformances = contestResults.map(({ performance, endTime }) => {
-		if (endTime == undefined) {
+		if (endTime === undefined) {
 			throw new Error('invalid contest result: endTime is undefined');
 		}
 		const d = new Date(endTime);
