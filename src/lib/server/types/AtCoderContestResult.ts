@@ -8,5 +8,5 @@ export type AtCoderContestResult = {
 	contestScreenName: string;
 	contestName: string;
 	contestNameEn: string;
-	endTime: string;
+	endTime: Date;
 };

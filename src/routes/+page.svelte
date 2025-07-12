@@ -1,5 +1,4 @@
 <script lang="ts">
-	import type { AtCoderContestResult } from '$lib/AtCoderContestResult';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { browser } from '$app/environment';
@@ -10,8 +9,10 @@
 		applyRatingCorrection,
 		calculateAlgorithmRating,
 		calculateHeuristicRating,
+		calculateHeuristicRatingV2,
 		inverseRatingCorrection
 	} from '$lib/calculateRating';
+	import type { UserContestResult } from '$lib/types/UserContestResult';
 
 	let performancesTextArea: string = '';
 	let rating: number = 0;
@@ -137,7 +138,43 @@
 		});
 	};
 
+	let calculationDate: string = new Date().toISOString().slice(0, 10);
+
 	const handleCalculate = () => {
+		if (selectedContestType === 'heuristic_v2') {
+			const performances = performancesTextArea
+				.split('\n')
+				.map((line) => {
+					const [p, w, dateStr] = line.split(',');
+					const performance = inverseRatingCorrection(Number(p));
+					const weight = Number(w);
+					const endTime = new Date(dateStr);
+					if (isNaN(performance) || isNaN(weight) || isNaN(endTime.getTime())) return null;
+					return { performance, weight, endTime };
+				})
+				.filter((p) => p !== null) as UserContestResult[];
+
+			if (performances.length === 0) {
+				performances.push({ performance: 0, weight: 1, endTime: new Date() });
+			}
+
+			const baseDate = new Date(calculationDate);
+			baseDate.setHours(0, 0, 0, 0);
+
+			rating = calculateHeuristicRatingV2(performances, baseDate);
+
+			let newRatings: number[] = [];
+			for (const i of [...Array(320).keys()]) {
+				newRatings.push(
+					calculateHeuristicRatingV2(
+						[...performances, { performance: i * 10, weight: 1, endTime: baseDate }],
+						baseDate
+					)
+				);
+			}
+			drawChart(newRatings);
+			return;
+		}
 		const performances = performancesTextArea
 			.split('\n')
 			.map((p) => inverseRatingCorrection(parseInt(p)))
@@ -160,24 +197,32 @@
 	};
 
 	const handleImport = () => {
-		const performances: number[] = [];
 		urlSearchParams.set('id', atcoderID);
 		if (browser) {
 			goto(`?${urlSearchParams.toString()}`, { replaceState: true });
 
 			const url = `./api/${atcoderID}/${selectedContestType === 'algorithm' ? 'algorithm' : 'heuristic'}`;
 			fetch(url)
-				.then((response) => response.json<AtCoderContestResult[]>())
+				.then((response) => response.json<UserContestResult[]>())
 				.then((contestResults) => {
-					for (const contest of contestResults) {
-						if (contest.isRated) {
-							performances.push(Math.floor(applyRatingCorrection(contest.performance)));
-						}
+					if (selectedContestType === 'heuristic_v2') {
+						performancesTextArea = contestResults
+							.map((c) => {
+								if (c.endTime === undefined || c.weight === undefined) {
+									throw new Error('Invalid contest result: endTime or weight is undefined');
+								}
+								const performance = Math.floor(applyRatingCorrection(c.performance));
+								const weight = c.weight;
+								const endDate = new Date(c.endTime);
+								return `${performance},${weight},${endDate.toISOString()}`;
+							})
+							.join('\n');
+					} else {
+						performancesTextArea = contestResults
+							.map((contest) => Math.floor(applyRatingCorrection(contest.performance)).toString())
+							.join('\n');
 					}
-					if (performances) {
-						performancesTextArea = performances.join('\n');
-						handleCalculate();
-					}
+					handleCalculate();
 				})
 				.catch((error) => {
 					console.error(error);
@@ -236,7 +281,6 @@
 						type="radio"
 						value="heuristic_v2"
 						bind:group={selectedContestType}
-						disabled
 						class="text-blue-500 focus:ring-blue-500"
 					/>
 					<span class="text-sm text-gray-700">Heuristic (v2)</span>
@@ -268,13 +312,34 @@
 		<p>
 			改行区切りで入力してください。パフォーマンスの値はマイナス補正適用後の値を入力してください。
 		</p>
-		<div class="mb-4">
-			<textarea
-				bind:value={performancesTextArea}
-				placeholder="enter your performances."
-				class="h-[200px] w-[200px] rounded-md border border-gray-300 px-4 py-2 text-gray-700 hover:border-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
-			></textarea>
-		</div>
+		{#if selectedContestType === 'heuristic_v2'}
+			<div class="mb-4">
+				<p>パフォーマンス・重み・コンテストの終了日時をカンマ区切りで入力してください。</p>
+				<textarea
+					bind:value={performancesTextArea}
+					placeholder="performance,weight,endTime"
+					class="h-[200px] w-full max-w-[400px] rounded-md border border-gray-300 px-4 py-2 text-gray-700"
+				></textarea>
+			</div>
+			<div class="mb-4">
+				<label class="flex items-center gap-2">
+					<span class="text-sm text-gray-700">計算基準日:</span>
+					<input
+						type="date"
+						bind:value={calculationDate}
+						class="rounded-md border border-gray-300 px-2 py-1 text-gray-700"
+					/>
+				</label>
+			</div>
+		{:else}
+			<div class="mb-4">
+				<textarea
+					bind:value={performancesTextArea}
+					placeholder="performance"
+					class="h-[200px] w-[200px] rounded-md border border-gray-300 px-4 py-2 text-gray-700 hover:border-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+				></textarea>
+			</div>
+		{/if}
 		<div class="mb-4">
 			<button
 				on:click={handleCalculate}
@@ -325,6 +390,9 @@
 			</li>
 			<li>
 				<a href="https://www.dropbox.com/s/ne358pdixfafppm/AHC_rating.pdf">AHC Rating System</a>
+			</li>
+			<li>
+				<a href="https://img.atcoder.jp/file/AHC_rating_v2.pdf">AHC Rating System (ver.2)</a>
 			</li>
 		</ul>
 	</section>
