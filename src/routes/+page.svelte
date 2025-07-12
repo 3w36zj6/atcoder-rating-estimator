@@ -247,6 +247,15 @@
 		name="description"
 		content="AtCoderのRatedコンテストで目標レーティングへの到達に必要なパフォーマンスを計算しグラフで表示します。"
 	/>
+	<link rel="canonical" href="https://atcoder-rating-estimator.pages.dev/" />
+	<meta property="og:site_name" content="AtCoder Rating Estimator" />
+	<meta property="og:url" content="https://atcoder-rating-estimator.pages.dev/" />
+	<meta property="og:title" content="AtCoder Rating Estimator" />
+	<meta
+		property="og:description"
+		content="AtCoderのRatedコンテストで目標レーティングへの到達に必要なパフォーマンスを計算しグラフで表示します。"
+	/>
+	<meta property="og:type" content="website" />
 </svelte:head>
 
 <main>
