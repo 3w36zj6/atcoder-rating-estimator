@@ -22,7 +22,14 @@
 	let atcoderID = 'tourist';
 	const urlSearchParams = page.url.searchParams;
 
-	const drawChart = (ratings: number[]) => {
+	type ChartDataset = {
+		label: string;
+		borderColor: string;
+		backgroundColor: string;
+		data: number[];
+	};
+
+	const drawChart = (datasets: ChartDataset[]) => {
 		if (chart) {
 			chart.destroy();
 		}
@@ -30,16 +37,13 @@
 			labels: [...Array(320).keys()].map((i) => {
 				return i * 10;
 			}),
-			datasets: [
-				{
-					title: 'Performance',
-					label: 'New Rating',
-					backgroundColor: 'rgb(128, 128, 128, 0)',
-					borderColor: 'rgb(128, 128, 128 ,0.8)',
-					pointRadius: 0,
-					data: ratings
-				}
-			]
+			datasets: datasets.map((ds) => ({
+				label: ds.label,
+				backgroundColor: ds.backgroundColor,
+				borderColor: ds.borderColor,
+				pointRadius: 0,
+				data: ds.data
+			}))
 		};
 
 		const drawBackgroundPlugin: Plugin = {
@@ -76,6 +80,8 @@
 			}
 		};
 
+		const hasMultipleDatasets = datasets.length > 1;
+
 		chart = new Chart(chartCanvas, {
 			type: 'line',
 			data: chartData,
@@ -93,13 +99,26 @@
 						titleFont: {
 							style: 'normal'
 						},
-						displayColors: false,
+						displayColors: hasMultipleDatasets,
+						usePointStyle: true,
 						callbacks: {
 							title: (tooltipItems) => {
 								return `Performance: ${tooltipItems[0].parsed.x}`;
 							},
-							label: (tooltipItems) => {
-								return `Rating: ${tooltipItems.parsed.y}`;
+							label: (tooltipItem) => {
+								const roundedRating = Math.round(tooltipItem.parsed.y);
+								if (hasMultipleDatasets) {
+									return `${tooltipItem.dataset.label}: ${roundedRating}`;
+								}
+								return `Rating: ${roundedRating}`;
+							},
+							labelColor: (tooltipItem) => {
+								const color = tooltipItem.dataset.borderColor as string;
+								return {
+									borderColor: color,
+									backgroundColor: color,
+									borderWidth: 0
+								};
 							}
 						}
 					}
@@ -163,16 +182,29 @@
 
 			rating = calculateHeuristicRatingV2(performances, baseDate);
 
-			let newRatings: number[] = [];
-			for (const i of [...Array(320).keys()]) {
-				newRatings.push(
-					calculateHeuristicRatingV2(
-						[...performances, { performance: i * 10, weight: 1, endTime: baseDate }],
-						baseDate
-					)
-				);
-			}
-			drawChart(newRatings);
+			const weights = [0.5, 1] as const;
+			const colors = [
+				{ border: 'rgba(54, 162, 235, 0.8)', bg: 'rgba(54, 162, 235, 0)' },
+				{ border: 'rgba(255, 99, 132, 0.8)', bg: 'rgba(255, 99, 132, 0)' }
+			];
+			const chartDatasets: ChartDataset[] = weights.map((w, idx) => {
+				const ratingsForWeight: number[] = [];
+				for (const i of [...Array(320).keys()]) {
+					ratingsForWeight.push(
+						calculateHeuristicRatingV2(
+							[...performances, { performance: i * 10, weight: w, endTime: baseDate }],
+							baseDate
+						)
+					);
+				}
+				return {
+					label: `New Rating (weight=${w})`,
+					borderColor: colors[idx].border,
+					backgroundColor: colors[idx].bg,
+					data: ratingsForWeight
+				};
+			});
+			drawChart(chartDatasets);
 			return;
 		}
 		const performances = performancesTextArea
@@ -193,7 +225,14 @@
 		for (const i of [...Array(320).keys()]) {
 			newRatings.push(calculateRating([...performances, { performance: i * 10 }]));
 		}
-		drawChart(newRatings);
+		drawChart([
+			{
+				label: 'New Rating',
+				borderColor: 'rgb(128, 128, 128, 0.8)',
+				backgroundColor: 'rgb(128, 128, 128, 0)',
+				data: newRatings
+			}
+		]);
 	};
 
 	const handleImport = () => {
