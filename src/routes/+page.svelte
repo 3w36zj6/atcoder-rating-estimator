@@ -18,6 +18,9 @@
 	let rating: number = 0;
 	let chart: Chart | undefined;
 	let chartCanvas: HTMLCanvasElement;
+	let xMin: number | undefined = 0;
+	let xMax: number | undefined = 3200;
+	let rangeError = '';
 	let selectedContestType: 'algorithm' | 'heuristic_v1' | 'heuristic_v2' = 'algorithm';
 	let atcoderID = 'tourist';
 	const urlSearchParams = page.url.searchParams;
@@ -29,14 +32,12 @@
 		data: number[];
 	};
 
-	const drawChart = (datasets: ChartDataset[]) => {
+	const drawChart = (datasets: ChartDataset[], performanceValues: number[]) => {
 		if (chart) {
 			chart.destroy();
 		}
 		const chartData = {
-			labels: [...Array(320).keys()].map((i) => {
-				return i * 10;
-			}),
+			labels: performanceValues,
 			datasets: datasets.map((ds) => ({
 				label: ds.label,
 				backgroundColor: ds.backgroundColor,
@@ -52,31 +53,38 @@
 				const xScale = chart.scales['x'];
 				const yScale = chart.scales['y'];
 				const ctx = chart.ctx;
+				const clamp = (value: number, min: number, max: number) =>
+					Math.max(min, Math.min(value, max));
 
-				for (const rating of [...Array(10).keys()].map((i) => {
+				for (const rating of [...Array(8).keys()].map((i) => {
 					return i * 400;
 				})) {
+					const yUpper = rating === 2800 ? yScale.max : rating + 400;
+					const xUpper = rating === 2800 ? xScale.max : rating + 400;
 					ctx.fillStyle = `rgba(${getRatingColor(rating).join(', ')}, 0.2)`;
 					ctx.fillRect(
 						xScale.left,
-						Math.min(yScale.getPixelForValue(rating + 400), yScale.bottom),
+						clamp(yScale.getPixelForValue(yUpper), yScale.top, yScale.bottom),
 						xScale.width,
-						Math.min(yScale.getPixelForValue(rating), yScale.bottom) -
-							Math.min(yScale.getPixelForValue(rating + 400), yScale.bottom)
+						clamp(yScale.getPixelForValue(rating), yScale.top, yScale.bottom) -
+							clamp(yScale.getPixelForValue(yUpper), yScale.top, yScale.bottom)
 					);
 					ctx.fillStyle = `rgba(${getRatingColor(rating).join(', ')}, 0.5)`;
 					ctx.fillRect(
-						xScale.getPixelForValue(rating),
+						clamp(xScale.getPixelForValue(rating), xScale.left, xScale.right),
 						yScale.bottom,
-						Math.min(xScale.getPixelForValue(rating + 400), xScale.right) -
-							Math.min(xScale.getPixelForValue(rating), xScale.right),
+						clamp(xScale.getPixelForValue(xUpper), xScale.left, xScale.right) -
+							clamp(xScale.getPixelForValue(rating), xScale.left, xScale.right),
 						5
 					);
 				}
 
 				const currentRating = rating;
 				ctx.fillStyle = `rgba(${getRatingColor(currentRating).join(', ')}, 0.5)`;
-				ctx.fillRect(xScale.left, yScale.getPixelForValue(currentRating), xScale.width, 3);
+				const ratingY = yScale.getPixelForValue(currentRating);
+				if (ratingY >= yScale.top && ratingY <= yScale.bottom) {
+					ctx.fillRect(xScale.left, ratingY, xScale.width, 3);
+				}
 			}
 		};
 
@@ -106,7 +114,7 @@
 								return `Performance: ${tooltipItems[0].parsed.x}`;
 							},
 							label: (tooltipItem) => {
-								const roundedRating = Math.round(tooltipItem.parsed.y);
+								const roundedRating = Math.round(tooltipItem.parsed.y ?? 0);
 								if (hasMultipleDatasets) {
 									return `${tooltipItem.dataset.label}: ${roundedRating}`;
 								}
@@ -126,13 +134,23 @@
 				scales: {
 					x: {
 						type: 'linear',
+						bounds: 'data',
+						min: performanceValues[0],
+						max: performanceValues[performanceValues.length - 1],
+						afterBuildTicks: (scale) => {
+							const firstTick = Math.ceil(scale.min / 200) * 200;
+							scale.ticks = Array.from(
+								{ length: Math.max(0, Math.floor((scale.max - firstTick) / 200) + 1) },
+								(_, i) => ({ value: firstTick + i * 200 })
+							);
+						},
 						title: {
 							display: true,
 							text: 'Performance'
 						},
 						ticks: {
-							stepSize: 100,
-							maxTicksLimit: 32,
+							stepSize: 200,
+							autoSkip: false,
 							callback: (value) => {
 								return value.toString();
 							}
@@ -140,11 +158,16 @@
 					},
 					y: {
 						type: 'linear',
+						afterDataLimits: (scale) => {
+							scale.min = Math.floor(scale.min / 100) * 100;
+							scale.max = Math.max(scale.min + 100, Math.ceil(scale.max / 100) * 100);
+						},
 						title: {
 							display: true,
 							text: 'New Rating'
 						},
 						ticks: {
+							precision: 0,
 							stepSize: 100,
 							callback: (value) => {
 								return value.toString();
@@ -157,9 +180,53 @@
 		});
 	};
 
+	const adjustChartRange = (changed: 'min' | 'max') => {
+		if (changed === 'min') {
+			if (xMin === undefined || !Number.isFinite(xMin)) return;
+			xMin = Math.max(0, xMin);
+			if (xMax === undefined || xMax < xMin + 1) {
+				xMax = xMin + 1;
+			}
+		} else {
+			if (xMax === undefined || !Number.isFinite(xMax)) return;
+			xMax = Math.max(1, xMax);
+			if (xMin === undefined || xMin > xMax - 1) {
+				xMin = xMax - 1;
+			}
+		}
+		rangeError = '';
+	};
+
+	const resetChartRange = () => {
+		xMin = 0;
+		xMax = 3200;
+		handleCalculate();
+	};
+
 	let calculationDate: string = new Date().toISOString().slice(0, 10);
 
 	const handleCalculate = () => {
+		if (
+			xMin === undefined ||
+			xMax === undefined ||
+			!Number.isFinite(xMin) ||
+			!Number.isFinite(xMax) ||
+			xMin < 0 ||
+			xMin >= xMax
+		) {
+			rangeError = '最小値と最大値を入力し、最小値は0以上、最大値より小さくしてください。';
+			return;
+		}
+		rangeError = '';
+		// Keep large ranges responsive while including both endpoints.
+		const min = xMin;
+		const max = xMax;
+		const step = Math.max(10, Math.ceil((max - min) / 1000));
+		const performanceValues = Array.from(
+			{ length: Math.ceil((max - min) / step) },
+			(_, i) => min + i * step
+		);
+		performanceValues.push(max);
 		if (selectedContestType === 'heuristic_v2') {
 			const performances = performancesTextArea
 				.split('\n')
@@ -189,10 +256,10 @@
 			];
 			const chartDatasets: ChartDataset[] = weights.map((w, idx) => {
 				const ratingsForWeight: number[] = [];
-				for (const i of [...Array(320).keys()]) {
+				for (const performance of performanceValues) {
 					ratingsForWeight.push(
 						calculateHeuristicRatingV2(
-							[...performances, { performance: i * 10, weight: w, endTime: baseDate }],
+							[...performances, { performance, weight: w, endTime: baseDate }],
 							baseDate
 						)
 					);
@@ -204,7 +271,7 @@
 					data: ratingsForWeight
 				};
 			});
-			drawChart(chartDatasets);
+			drawChart(chartDatasets, performanceValues);
 			return;
 		}
 		const performances = performancesTextArea
@@ -222,17 +289,20 @@
 
 		rating = calculateRating(performances);
 		let newRatings: number[] = [];
-		for (const i of [...Array(320).keys()]) {
-			newRatings.push(calculateRating([...performances, { performance: i * 10 }]));
+		for (const performance of performanceValues) {
+			newRatings.push(calculateRating([...performances, { performance }]));
 		}
-		drawChart([
-			{
-				label: 'New Rating',
-				borderColor: 'rgb(128, 128, 128, 0.8)',
-				backgroundColor: 'rgb(128, 128, 128, 0)',
-				data: newRatings
-			}
-		]);
+		drawChart(
+			[
+				{
+					label: 'New Rating',
+					borderColor: 'rgb(128, 128, 128, 0.8)',
+					backgroundColor: 'rgb(128, 128, 128, 0)',
+					data: newRatings
+				}
+			],
+			performanceValues
+		);
 	};
 
 	const handleImport = () => {
@@ -403,6 +473,52 @@
 	</section>
 	<section>
 		<h2>次回のレーティング</h2>
+		<form on:submit|preventDefault={handleCalculate} class="mb-4">
+			<p class="mb-2 text-sm text-gray-700">グラフの表示範囲</p>
+			<div class="flex flex-wrap gap-4">
+				<fieldset class="flex items-center gap-2">
+					<legend class="text-sm text-gray-700">パフォーマンス</legend>
+					<label class="text-sm text-gray-700">
+						最小
+						<input
+							type="number"
+							step="any"
+							min="0"
+							required
+							bind:value={xMin}
+							on:change={() => adjustChartRange('min')}
+							class="w-24 rounded-md border border-gray-300 px-2 py-1"
+						/>
+					</label>
+					<label class="text-sm text-gray-700">
+						最大
+						<input
+							type="number"
+							step="any"
+							min="0"
+							required
+							bind:value={xMax}
+							on:change={() => adjustChartRange('max')}
+							class="w-24 rounded-md border border-gray-300 px-2 py-1"
+						/>
+					</label>
+				</fieldset>
+			</div>
+			{#if rangeError}
+				<p role="alert" class="mt-2 text-sm text-red-700">{rangeError}</p>
+			{/if}
+			<div class="mt-2 flex gap-2">
+				<button
+					type="submit"
+					class="rounded-md bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
+				>範囲を適用</button>
+				<button
+					type="button"
+					on:click={resetChartRange}
+					class="rounded-md border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-100"
+				>リセット</button>
+			</div>
+		</form>
 		<div class="relative w-full max-w-[900px]"><canvas bind:this={chartCanvas}></canvas></div>
 	</section>
 	<section>
