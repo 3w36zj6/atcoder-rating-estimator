@@ -6,6 +6,10 @@ import {
 } from './calculateRating';
 
 describe('calculateAlgorithmRating', () => {
+	it('calculates large performances without overflowing', () => {
+		expect(calculateAlgorithmRating([{ performance: 820000 }])).toBeCloseTo(818800);
+		expect(calculateAlgorithmRating([{ performance: -Infinity }])).toBe(0);
+	});
 	it("should return the correct rating for tourist's performances", () => {
 		// https://atcoder.jp/users/tourist/history
 		const contestResults = [

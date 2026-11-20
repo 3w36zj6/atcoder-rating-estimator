@@ -31,19 +31,23 @@ export const calculateAlgorithmRating = (contestResults: UserContestResult[]): n
 		const FInf = Math.sqrt(0.81 / (1 - 0.81)) / (0.9 / (1 - 0.9));
 		return ((F(n) - FInf) / (F(1) - FInf)) * 1200;
 	};
-	const g = (x: number) => Math.pow(2, x / 800);
 	const gInv = (y: number) => 800 * Math.log2(y);
 
 	let weightedGSum = 0;
 	let weightSum = 0;
 	const performances = contestResults.map((result) => result.performance).reverse();
+	const maxPerformance = performances.reduce(
+		(max, performance) => Math.max(max, performance),
+		-Infinity
+	);
+	if (maxPerformance === -Infinity) return 0;
 	for (let i = 0; i < performances.length; i++) {
 		const weight = Math.pow(0.9, i);
-		weightedGSum += g(performances[i]) * weight;
+		weightedGSum += Math.pow(2, (performances[i] - maxPerformance) / 800) * weight;
 		weightSum += weight;
 	}
 
-	let rating = gInv(weightedGSum / weightSum) - f(performances.length);
+	let rating = maxPerformance + gInv(weightedGSum / weightSum) - f(performances.length);
 	rating = applyRatingCorrection(rating);
 	return rating;
 };
